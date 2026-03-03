@@ -1,9 +1,14 @@
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from app.jenkins_client import JenkinsClient
 
-app = FastAPI()
+app = FastAPI(title="Enterprise Jenkins Chatbot API")
 
 jenkins_client = JenkinsClient()
+
+
+class JobRequest(BaseModel):
+    job_name: str
 
 
 @app.get("/health")
@@ -21,6 +26,16 @@ def jenkins_status():
             "jenkins_mode": data.get("mode"),
             "node_description": data.get("nodeDescription")
         }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/jenkins/trigger")
+def trigger_pipeline(request: JobRequest):
+    try:
+        result = jenkins_client.trigger_job(request.job_name)
+        return result
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
