@@ -1,35 +1,56 @@
 import requests
-from config import settings
+from requests.auth import HTTPBasicAuth
+from config import JENKINS_URL, JENKINS_USER, JENKINS_API_TOKEN
 
-
-def trigger_jenkins_job(job_name: str):
+def get_crumb():
     try:
-        session = requests.Session()
-        session.auth = (settings.JENKINS_USER, settings.JENKINS_TOKEN)
+        crumb_url = f"{JENKINS_URL}/crumbIssuer/api/json"
+        response = requests.get(
+            crumb_url,
+            auth=HTTPBasicAuth(JENKINS_USER, JENKINS_API_TOKEN)
+        )
 
-        # Get CSRF crumb (if enabled)
-        crumb_url = f"{settings.JENKINS_URL}/crumbIssuer/api/json"
-        crumb_response = session.get(crumb_url)
-
-        headers = {}
-
-        if crumb_response.status_code == 200:
-            crumb_data = crumb_response.json()
-            headers = {
-                crumb_data["crumbRequestField"]: crumb_data["crumb"]
-            }
-
-        build_url = f"{settings.JENKINS_URL}/job/{job_name}/build"
-
-        response = session.post(build_url, headers=headers)
-
-        print("Jenkins Status Code:", response.status_code)
-        print("Jenkins Response:", response.text)
-
-        if response.status_code in [200, 201, 202]:
-            return f"Jenkins job '{job_name}' triggered successfully!"
+        if response.status_code == 200:
+            data = response.json()
+            return {data["crumbRequestField"]: data["crumb"]}
         else:
-            return f"Failed! Status: {response.status_code}"
+            print("Crumb fetch failed:", response.text)
+            return {}
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        print("Crumb error:", str(e))
+        return {}
+
+
+def trigger_jenkins_job(job_name):
+    try:
+        url = f"{JENKINS_URL}/job/{job_name}/build"
+
+        headers = get_crumb()
+
+        response = requests.post(
+            url,
+            auth=HTTPBasicAuth(JENKINS_USER, JENKINS_API_TOKEN),
+            headers=headers
+        )
+
+        print("Triggering URL:", url)
+        print("Status Code:", response.status_code)
+        print("Response Text:", response.text)
+
+        if response.status_code in [200, 201]:
+            return {
+                "status": "success",
+                "message": f"Jenkins job '{job_name}' triggered successfully"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Failed! Status: {response.status_code}"
+            }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
