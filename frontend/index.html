@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Enterprise Jenkins Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+    margin: 0;
+    background: #0f172a;
+    font-family: 'Inter', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    padding: 20px;
+    background: linear-gradient(90deg,#1e293b,#0f172a);
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.chat-container {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.message {
+    margin-bottom: 15px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    max-width: 70%;
+}
+
+.bot {
+    background: #1e293b;
+}
+
+.user {
+    background: #2563eb;
+    margin-left: auto;
+}
+
+.input-area {
+    display: flex;
+    padding: 15px;
+    background: #1e293b;
+}
+
+input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #334155;
+    color: white;
+}
+
+button {
+    margin-left: 10px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+Enterprise Jenkins Chat Assistant
+</header>
+
+<div class="chat-container" id="chat">
+</div>
+
+<div class="input-area">
+    <input type="text" id="userInput" placeholder="Type your message..." onkeydown="if(event.key==='Enter') sendMessage()">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+
+const API_KEY = "12345";
+const BASE_URL = "http://127.0.0.1:8000";
+
+let pendingIntent = null;
+
+function addMessage(text, sender) {
+    const chat = document.getElementById("chat");
+    const msg = document.createElement("div");
+    msg.classList.add("message", sender);
+    msg.innerText = text;
+    chat.appendChild(msg);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function botIntro() {
+    addMessage(
+        "Hello 👋 I'm your Enterprise Jenkins Assistant.\n\n" +
+        "I help trigger database pipelines and send details over email.\n" +
+        "You can simply type something like:\n" +
+        "- food db\n" +
+        "- nescafe db\n\n" +
+        "How may I assist you today?",
+        "bot"
+    );
+}
+
+async function triggerPipeline(jobName) {
+    try {
+        await fetch(`${BASE_URL}/jenkins/trigger`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": API_KEY
+            },
+            body: JSON.stringify({
+                job_name: jobName
+            })
+        });
+
+        addMessage(
+            "✅ Perfect! The pipeline has been triggered successfully.\n" +
+            "📩 You will receive the requested database details over email shortly.\n\n" +
+            "Happy to assist you anytime 😊",
+            "bot"
+        );
+
+    } catch (error) {
+        addMessage("⚠️ I faced an issue while triggering the pipeline. Please try again.", "bot");
+    }
+}
+
+function understandIntent(message) {
+    const msg = message.toLowerCase();
+
+    if (msg.includes("food")) {
+        pendingIntent = "food";
+        addMessage(
+            "Just to confirm — would you like Food Sites DB details over email?",
+            "bot"
+        );
+        return;
+    }
+
+    if (msg.includes("nescafe")) {
+        pendingIntent = "nescafe";
+        addMessage(
+            "Just to confirm — would you like Nescafe Sites DB details over email?",
+            "bot"
+        );
+        return;
+    }
+
+    if (msg === "yes" || msg === "yeah" || msg === "yep") {
+        if (pendingIntent === "food") {
+            pendingIntent = null;
+            triggerPipeline("apidbsizeowais");
+            return;
+        }
+
+        if (pendingIntent === "nescafe") {
+            pendingIntent = null;
+            triggerPipeline("chatbottesting");
+            return;
+        }
+    }
+
+    if (msg === "no") {
+        pendingIntent = null;
+        addMessage(
+            "No worries 😊 Let me know what database you need.",
+            "bot"
+        );
+        return;
+    }
+
+    if (msg.includes("hello") || msg.includes("hi")) {
+        addMessage(
+            "Hello there 👋 I'm here to help with Jenkins database automation.\nWhat would you like today?",
+            "bot"
+        );
+        return;
+    }
+
+    if (msg.includes("what can you do")) {
+        addMessage(
+            "I can trigger database pipelines and send details via email.\n\n" +
+            "Try typing:\n" +
+            "- food db\n" +
+            "- nescafe db",
+            "bot"
+        );
+        return;
+    }
+
+    addMessage(
+        "I'm specifically designed for Jenkins database automation tasks.\n" +
+        "Please mention the database you need, like 'food db' or 'nescafe db'.",
+        "bot"
+    );
+}
+
+function sendMessage() {
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage(message, "user");
+    input.value = "";
+
+    setTimeout(() => understandIntent(message), 600);
+}
+
+botIntro();
+
+</script>
+</body>
+</html>
