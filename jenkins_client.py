@@ -1,5 +1,5 @@
 import requests
-from app.config import settings
+from config import settings
 
 
 def trigger_jenkins_job(job_name: str):
