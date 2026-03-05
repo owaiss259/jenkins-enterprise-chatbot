@@ -1,51 +1,35 @@
 import requests
-from requests.auth import HTTPBasicAuth
 from app.config import settings
 
 
-class JenkinsClient:
+def trigger_jenkins_job(job_name: str):
+    try:
+        session = requests.Session()
+        session.auth = (settings.JENKINS_USER, settings.JENKINS_TOKEN)
 
-    def __init__(self):
-        if not settings.JENKINS_URL:
-            raise ValueError("JENKINS_URL not configured")
+        # Get CSRF crumb (if enabled)
+        crumb_url = f"{settings.JENKINS_URL}/crumbIssuer/api/json"
+        crumb_response = session.get(crumb_url)
 
-        if not settings.JENKINS_USERNAME:
-            raise ValueError("JENKINS_USERNAME not configured")
+        headers = {}
 
-        if not settings.JENKINS_API_TOKEN:
-            raise ValueError("JENKINS_API_TOKEN not configured")
+        if crumb_response.status_code == 200:
+            crumb_data = crumb_response.json()
+            headers = {
+                crumb_data["crumbRequestField"]: crumb_data["crumb"]
+            }
 
-        self.base_url = settings.JENKINS_URL.rstrip("/")
-        self.auth = HTTPBasicAuth(
-            settings.JENKINS_USERNAME,
-            settings.JENKINS_API_TOKEN
-        )
+        build_url = f"{settings.JENKINS_URL}/job/{job_name}/build"
 
-    def get_jenkins_status(self):
-        """
-        Fetch Jenkins system information
-        """
-        url = f"{self.base_url}/api/json"
+        response = session.post(build_url, headers=headers)
 
-        response = requests.get(url, auth=self.auth, timeout=10)
+        print("Jenkins Status Code:", response.status_code)
+        print("Jenkins Response:", response.text)
 
-        if response.status_code != 200:
-            raise Exception(f"Failed to connect to Jenkins: {response.status_code}")
+        if response.status_code in [200, 201, 202]:
+            return f"Jenkins job '{job_name}' triggered successfully!"
+        else:
+            return f"Failed! Status: {response.status_code}"
 
-        return response.json()
-
-    def trigger_job(self, job_name: str):
-        """
-        Trigger a Jenkins job by name
-        """
-        if not job_name:
-            raise ValueError("Job name is required")
-
-        url = f"{self.base_url}/job/{job_name}/build"
-
-        response = requests.post(url, auth=self.auth, timeout=10)
-
-        if response.status_code not in [200, 201, 202]:
-            raise Exception(f"Failed to trigger job: {response.status_code}")
-
-        return {"message": f"Job '{job_name}' triggered successfully"}
+    except Exception as e:
+        return f"Error: {str(e)}"

@@ -1,41 +1,62 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from app.jenkins_client import JenkinsClient
+import os
+from dotenv import load_dotenv
 
-app = FastAPI(title="Enterprise Jenkins Chatbot API")
+from app.jenkins_client import trigger_jenkins_job
 
-jenkins_client = JenkinsClient()
+# Load environment variables
+load_dotenv()
+
+# Create FastAPI app
+app = FastAPI()
+
+# Enable CORS (so frontend can call backend)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Load API key from .env
+API_KEY = os.getenv("API_KEY")
+
+# Serve frontend static folder
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 
-class JobRequest(BaseModel):
+# Request model for Jenkins trigger
+class JenkinsRequest(BaseModel):
     job_name: str
 
 
+# Root route -> serves chatbot UI
+@app.get("/")
+def serve_frontend():
+    return FileResponse("frontend/index.html")
+
+
+# Health check route
 @app.get("/health")
 def health_check():
-    return {"status": "Chatbot is running"}
+    return {"status": "Backend Running ✅"}
 
 
-@app.get("/jenkins/status")
-def jenkins_status():
-    try:
-        data = jenkins_client.get_jenkins_status()
-
-        return {
-            "jenkins_name": data.get("displayName"),
-            "jenkins_mode": data.get("mode"),
-            "node_description": data.get("nodeDescription")
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+# Jenkins trigger endpoint
 @app.post("/jenkins/trigger")
-def trigger_pipeline(request: JobRequest):
-    try:
-        result = jenkins_client.trigger_job(request.job_name)
-        return result
+def trigger_pipeline(
+    request: JenkinsRequest,
+    x_api_key: str = Header(None)
+):
+    # Validate API key
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    result = trigger_jenkins_job(request.job_name)
+
+    return {"message": result}
