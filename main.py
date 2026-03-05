@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 
-from app.jenkins_client import trigger_jenkins_job
+from jenkins_client import trigger_jenkins_job
 
 # Load environment variables
 load_dotenv()
