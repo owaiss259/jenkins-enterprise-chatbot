@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  chatbot:
+    build: .
+    container_name: chatbot-container
+    ports:
+      - "8000:8000"
+    restart: always
+    env_file:
+      - .env
