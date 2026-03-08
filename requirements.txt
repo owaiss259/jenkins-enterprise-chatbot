@@ -17,5 +17,8 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.41.0
+<<<<<<< HEAD
 gunicorn
 uvicorn[standard]
+=======
+>>>>>>> 8b2b0d5aaefe1978f6369fa0c371a8166aa78335
